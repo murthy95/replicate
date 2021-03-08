@@ -11,17 +11,18 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"github.com/replicate/replicate/go/pkg/console"
-	"github.com/replicate/replicate/go/pkg/errors"
-	"github.com/replicate/replicate/go/pkg/files"
-	"github.com/replicate/replicate/go/pkg/global"
+	"github.com/replicate/keepsake/go/pkg/console"
+	"github.com/replicate/keepsake/go/pkg/errors"
+	"github.com/replicate/keepsake/go/pkg/files"
+	"github.com/replicate/keepsake/go/pkg/global"
+	"github.com/replicate/keepsake/go/pkg/slices"
 )
 
 const maxSearchDepth = 100
 const deprecatedRepositoryDir = ".replicate/storage"
 
 // FindConfigInWorkingDir searches working directory and any parent directories
-// for replicate.yaml (or replicate.yml) and loads it.
+// for keepsake.yaml (or keepsake.yml) and loads it.
 //
 // This function can also be used to discover the source dir -- it returns a
 // (config, projectDir) tuple.
@@ -29,20 +30,13 @@ const deprecatedRepositoryDir = ".replicate/storage"
 // If overrideDir is passed, it uses that directory instead.
 func FindConfigInWorkingDir(overrideDir string) (conf *Config, projectDir string, err error) {
 	if overrideDir != "" {
-		conf, err := LoadConfig(path.Join(overrideDir, global.ConfigFilenames[0]))
+		configPath, err := findConfigPathInDirectory(overrideDir)
 		if err != nil {
-			if errors.IsConfigNotFound(err) {
-				// Try to locate replicate.yml
-				conf, err := LoadConfig(path.Join(overrideDir, global.ConfigFilenames[1]))
-				if err != nil {
-					if os.IsNotExist(err) {
-						return getDefaultConfig(overrideDir), overrideDir, nil
-					}
-					return nil, "", err
-				}
-				return conf, overrideDir, nil
+			return nil, "", err
+		}
 
-			}
+		conf, err := LoadConfig(configPath)
+		if err != nil {
 			return nil, "", err
 		}
 		return conf, overrideDir, nil
@@ -55,17 +49,17 @@ func FindConfigInWorkingDir(overrideDir string) (conf *Config, projectDir string
 }
 
 // FindConfig searches the given directory and any parent
-// directories for replicate.yaml, then loads it
+// directories for keepsake.yaml, then loads it
 func FindConfig(dir string) (conf *Config, projectDir string, err error) {
 	configPath, deprecatedRepositoryProjectRoot, err := FindConfigPath(dir)
 	if err != nil {
 		return nil, "", err
 	}
 	if deprecatedRepositoryProjectRoot != "" {
-		// go up two directories from .replicate/storage
-		console.Warn(`replicate.yaml is required now. put this file in the project directory %s to remove this warning:
+		// go up two directories from .keepsake/storage
+		console.Warn(`keepsake.yaml is required now. put this file in the project directory %s to remove this warning:
 
-repository: file://.replicate/storage`, deprecatedRepositoryProjectRoot)
+repository: file://%s`, projectDir, deprecatedRepositoryProjectRoot)
 
 		conf = &Config{
 			Repository: "file://" + deprecatedRepositoryDir,
@@ -79,7 +73,7 @@ repository: file://.replicate/storage`, deprecatedRepositoryProjectRoot)
 	return conf, filepath.Dir(configPath), nil
 }
 
-// LoadConfig reads and validates replicate.yaml
+// LoadConfig reads and validates keepsake.yaml
 func LoadConfig(configPath string) (conf *Config, err error) {
 	text, err := ioutil.ReadFile(configPath)
 	if err != nil {
@@ -92,14 +86,14 @@ func LoadConfig(configPath string) (conf *Config, err error) {
 	if err != nil {
 		// FIXME (bfirsh): implement standard way of displaying config errors so this can be used in other places
 		msg := fmt.Sprintf("%v\n\n", err)
-		msg += "To fix this, take a look at the replicate.yaml reference:\n"
+		msg += "To fix this, take a look at the keepsake.yaml reference:\n"
 		msg += fmt.Sprintf("%s/docs/reference/yaml", global.WebURL)
 		return nil, fmt.Errorf(msg)
 	}
 	return conf, nil
 }
 
-// Parse replicate.yaml
+// Parse keepsake.yaml
 func Parse(text []byte, dir string) (conf *Config, err error) {
 	conf = getDefaultConfig(dir)
 
@@ -116,21 +110,21 @@ func Parse(text []byte, dir string) (conf *Config, err error) {
 	decoder.DisallowUnknownFields()
 	err = decoder.Decode(&conf)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse replicate.yaml: %s", err)
+		return nil, fmt.Errorf("Failed to parse keepsake.yaml: %s", err)
 	}
 
 	if conf.Storage != "" {
 		if conf.Repository != "" {
-			return nil, fmt.Errorf("'repository' and 'storage' (deprecated) cannot both be defined, please only use 'repository'")
+			return nil, fmt.Errorf("'repository' and 'storage' (deprecated) cannot both be defined in keepsake.yaml. Please only use 'repository'.")
 		}
 
-		console.Warn("'storage' is deprecated in replicate.yaml, please use 'repository'")
+		console.Warn("The 'storage' key is deprecated in keepsake.yaml. Please rename it to 'repository'.")
 		conf.Repository = conf.Storage
 		conf.Storage = ""
 	}
 
 	if conf.Repository == "" {
-		return nil, fmt.Errorf("Missing required field in replicate.yaml: repository")
+		return nil, fmt.Errorf("Missing required field in keepsake.yaml: repository")
 	}
 
 	return conf, nil
@@ -139,15 +133,12 @@ func Parse(text []byte, dir string) (conf *Config, err error) {
 func FindConfigPath(startFolder string) (configPath string, deprecatedRepositoryProjectRoot string, err error) {
 	folder := startFolder
 	for i := 0; i < maxSearchDepth; i++ {
-		for _, configFilename := range global.ConfigFilenames {
-			configPath = filepath.Join(folder, configFilename)
-			exists, err := files.FileExists(configPath)
-			if err != nil {
-				return "", "", fmt.Errorf("Failed to scan directory %s: %s", folder, err)
-			}
-			if exists {
-				return configPath, "", nil
-			}
+		configPath, err := findConfigPathInDirectory(folder)
+		if err != nil && !errors.IsConfigNotFound(err) {
+			return "", "", err
+		}
+		if err == nil {
+			return configPath, "", nil
 		}
 
 		deprecatedRepo := filepath.Join(folder, deprecatedRepositoryDir)
@@ -167,4 +158,22 @@ func FindConfigPath(startFolder string) (configPath string, deprecatedRepository
 		folder = filepath.Dir(folder)
 	}
 	return "", "", errors.ConfigNotFound(fmt.Sprintf("%s not found, recursive reached max depth", global.ConfigFilenames[0]))
+}
+
+func findConfigPathInDirectory(folder string) (configPath string, err error) {
+	for _, configFilename := range global.ConfigFilenames {
+		configPath = filepath.Join(folder, configFilename)
+		exists, err := files.FileExists(configPath)
+		if err != nil {
+			return "", fmt.Errorf("Failed to scan directory %s: %s", folder, err)
+		}
+		if exists {
+			if slices.ContainsString(global.DeprecatedConfigFilenames, configFilename) {
+				console.Warn("%s is deprecated. Please rename it to %s.", configFilename, global.ConfigFilenames[0])
+			}
+
+			return configPath, nil
+		}
+	}
+	return "", errors.ConfigNotFound(fmt.Sprintf("%s not found in %s", global.ConfigFilenames[0], folder))
 }

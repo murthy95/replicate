@@ -22,7 +22,7 @@ export default function Home() {
 
   return (
     <Layout
-      wholeTitle="Replicate – Version control for machine learning"
+      wholeTitle="Keepsake – Version control for machine learning"
       description="Automatically track your experiments and models with two lines of code. Open source and community-built."
     >
       <Header className="homepage">
@@ -31,7 +31,7 @@ export default function Home() {
           <meta
             property="twitter:title"
             key="twitter:title"
-            content="Replicate – Version control for ML"
+            content="Keepsake – Version control for ML"
           />
         </Head>
         <section className="cta">
@@ -46,7 +46,7 @@ export default function Home() {
             <Link href="/docs">Get started</Link>{" "}
             <a href="#manifesto">Get involved</a>{" "}
             <iframe
-              src="https://ghbtns.com/github-btn.html?user=replicate&amp;repo=replicate&amp;type=star&amp;count=true&amp;size=large"
+              src="https://ghbtns.com/github-btn.html?user=replicate&amp;repo=keepsake&amp;type=star&amp;count=true&amp;size=large"
               frameBorder="0"
               scrolling="0"
               width="170"
@@ -61,8 +61,8 @@ export default function Home() {
               <span>{num()}</span> Never lose your work
             </h2>
             <p>
-              Train as usual, and Replicate will automatically save your code
-              and weights to Amazon S3 or Google Cloud Storage.
+              Train as usual, and Keepsake will automatically save your code and
+              weights to Amazon S3 or Google Cloud Storage.
             </p>
           </div>
           <div>
@@ -96,7 +96,7 @@ export default function Home() {
             Just add two lines of code. You don’t need to change how you work.
           </p>
           <p>
-            Replicate is a Python library that uploads files and metadata (like
+            Keepsake is a Python library that uploads files and metadata (like
             hyperparameters) to Amazon S3 or Google Cloud Storage.
           </p>
           <p>
@@ -111,22 +111,28 @@ export default function Home() {
             copyButton={false}
             className="sm-hidden"
           >{`import torch
-import replicate
+import keepsake
 
-def train():
+def train(learning_rate, num_epochs):
     #highlight-start
     # Save training code and hyperparameters
-    experiment = replicate.init(path=".", params={...})
+    experiment = keepsake.init(
+      path=".",
+      params={"learning_rate": learning_rate, "num_epochs": num_epochs},
+    )
     #highlight-end
     model = Model()
 
     for epoch in range(num_epochs):
-        # ...
+        # ... train step ...
 
         torch.save(model, "model.pth")
         #highlight-start
         # Save model weights and metrics
-        experiment.checkpoint(path="model.pth", metrics={...})
+        experiment.checkpoint(
+          path="model.pth",
+          metrics={"loss": loss, "accuracy": accuracy}
+        })
         #highlight-end`}</CodeBlock>
           {/* Mobile */}
           <CodeBlock
@@ -134,12 +140,12 @@ def train():
             copyButton={false}
             className="hidden sm-block"
           >{`import torch
-import replicate
+import keepsake
 
 def train():
     #highlight-start
     # Save training code and params
-    experiment = replicate.init(
+    experiment = keepsake.init(
         path=".",
         params={...},
     )
@@ -230,7 +236,7 @@ def train():
             on other machines.
           </p>
           <CodeBlock language="shell-session">
-            {`$ replicate ls --filter "val_loss<0.2"
+            {`$ keepsake ls --filter "val_loss<0.2"
 EXPERIMENT   HOST         STATUS    BEST CHECKPOINT
 e510303      10.52.2.23   stopped   49668cb (val_loss=0.1484)
 9e97e07      10.52.7.11   running   41f0c60 (val_loss=0.1989)`}
@@ -244,7 +250,7 @@ e510303      10.52.2.23   stopped   49668cb (val_loss=0.1484)
               Learn more.
             </a>
           </p>
-          <img src="images/notebook.png" width="800" />
+          <img src="images/notebook.png" width="700" />
 
           <h3 id="anchor-2">Compare experiments</h3>
           <p>
@@ -252,7 +258,7 @@ e510303      10.52.2.23   stopped   49668cb (val_loss=0.1484)
             just in case that latest Tensorflow version did something weird.
           </p>
           <CodeBlock language="shell-session">
-            {`$ replicate diff 49668cb 41f0c60
+            {`$ keepsake diff 49668cb 41f0c60
 Checkpoint:       49668cb     41f0c60
 Experiment:       e510303     9e97e07
 
@@ -271,12 +277,12 @@ val_accuracy:     0.9607      0.9411`}
 
           <h3 id="anchor-4">Get back your code and weights</h3>
           <p>
-            Replicate lets you get back to any point you called{" "}
+            Keepsake lets you get back to any point you called{" "}
             <code>experiment.checkpoint()</code> so, you can re-train models and
             get your model weights out.
           </p>
           <CodeBlock language="shell-session">
-            {`$ replicate checkout f81069d
+            {`$ keepsake checkout f81069d
 Copying code and weights to working directory...
 
 If you want to run this experiment again, this is how it was run:
@@ -300,7 +306,7 @@ If you want to run this experiment again, this is how it was run:
 
           <h3 id="anchor-6">A platform to build upon</h3>
           <p>
-            Replicate is intentionally lightweight and doesn’t try to do too
+            Keepsake is intentionally lightweight and doesn’t try to do too
             much. Instead, we give you{" "}
             <a href="/docs/reference/python">Python</a> and{" "}
             <a href="/docs/reference/cli">command-line</a> APIs so you can
@@ -322,7 +328,7 @@ If you want to run this experiment again, this is how it was run:
         <div>
           <h3>Trash your spreadsheet</h3>
           <CodeBlock language="shell-session">
-            {`$ replicate ls --filter "val_loss<0.2"
+            {`$ keepsake ls --filter "val_loss<0.2"
 EXPERIMENT   HOST         STATUS    BEST CHECKPOINT
 e510303      10.52.2.23   stopped   49668cb (val_loss=0.1484)
 9e97e07      10.52.7.11   running   41f0c60 (val_loss=0.1989)`}
@@ -349,7 +355,7 @@ e510303      10.52.2.23   stopped   49668cb (val_loss=0.1484)
         <div> or, </div>
         <div>
           <Link href="/docs/learn/how-it-works">
-            <a>learn more about how Replicate works</a>
+            <a>learn more about how Keepsake works</a>
           </Link>
         </div>
       </section>

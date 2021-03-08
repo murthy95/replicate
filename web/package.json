@@ -1,5 +1,5 @@
 {
-  "name": "replicate-web",
+  "name": "keepsake-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,7 +20,7 @@
     "next": "10.0.0",
     "prettier": "^2.1.2",
     "prism-react-renderer": "^1.1.1",
-    "prismjs": "^1.21.0",
+    "prismjs": "^1.23.0",
     "raw-loader": "^4.0.1",
     "react": "16.14.0",
     "react-dom": "16.14.0",

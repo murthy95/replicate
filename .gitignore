@@ -1,4 +1,4 @@
-.replicate
+.keepsake
 .vscode/.ropeproject
 .mypy_cache
 *.egg-info/
@@ -7,7 +7,7 @@ __pycache__/
 go/release
 python/build
 python/dist
-python/replicate/bin
+python/keepsake/bin
 /local
 .env*.local
 .idea
@@ -15,3 +15,7 @@ python/replicate/bin
 # scratch notebooks
 Untitled.ipynb
 .ipynb_checkpoints
+
+# backwards-compatibility before PR505
+.replicate
+python/replicate/bin

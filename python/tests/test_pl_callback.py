@@ -12,8 +12,9 @@ from torch.utils.data.dataset import Dataset
 from torchvision.datasets import MNIST
 from torchvision import transforms
 import pytest
+import urllib
 
-from replicate.pl_callback import ReplicateCallback
+from keepsake.pl_callback import KeepsakeCallback
 
 
 class ModelNoValidation(LightningModule):
@@ -35,9 +36,15 @@ class ModelNoValidation(LightningModule):
         return x
 
     def prepare_data(self):
+        # HACK: https://github.com/pytorch/vision/issues/1938
+        # But, we shouldn't have to do this: https://github.com/replicate/keepsake/issues/551
+        opener = urllib.request.build_opener()
+        opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        urllib.request.install_opener(opener)
+
         # download only
         MNIST(
-            "/tmp/replicate-test-mnist",
+            "/tmp/keepsake-test-mnist",
             train=True,
             download=True,
             transform=transforms.ToTensor(),
@@ -47,7 +54,7 @@ class ModelNoValidation(LightningModule):
         # transform
         transform = transforms.Compose([transforms.ToTensor()])
         mnist_train = MNIST(
-            "/tmp/replicate-test-mnist", train=True, download=False, transform=transform
+            "/tmp/keepsake-test-mnist", train=True, download=False, transform=transform
         )
         mnist_train = Subset(mnist_train, range(100))
 
@@ -85,8 +92,8 @@ class ModelWithValidation(ModelNoValidation):
 
 
 def test_pl_callback_no_validation(temp_workdir):
-    with open("replicate.yaml", "w") as f:
-        f.write("repository: file://.replicate/")
+    with open("keepsake.yaml", "w") as f:
+        f.write("repository: file://.keepsake/")
 
     dense_size = 784
     learning_rate = 0.1
@@ -95,7 +102,7 @@ def test_pl_callback_no_validation(temp_workdir):
     trainer = Trainer(
         checkpoint_callback=False,
         callbacks=[
-            ReplicateCallback(
+            KeepsakeCallback(
                 params={"dense_size": dense_size, "learning_rate": learning_rate,},
                 primary_metric=("train_loss", "minimize"),
             )
@@ -105,7 +112,7 @@ def test_pl_callback_no_validation(temp_workdir):
 
     trainer.fit(model)
 
-    exp_meta_paths = glob(".replicate/metadata/experiments/*.json")
+    exp_meta_paths = glob(".keepsake/metadata/experiments/*.json")
     assert len(exp_meta_paths) == 1
     with open(exp_meta_paths[0]) as f:
         exp_meta = json.load(f)
@@ -122,12 +129,12 @@ def test_pl_callback_no_validation(temp_workdir):
     assert set(chkp_meta["metrics"].keys()) == set(
         ["train_loss", "global_step", "epoch",]
     )
-    assert os.path.exists(".replicate/checkpoints/" + chkp_meta["id"] + ".tar.gz")
+    assert os.path.exists(".keepsake/checkpoints/" + chkp_meta["id"] + ".tar.gz")
 
 
 def test_pl_callback_with_validation(temp_workdir):
-    with open("replicate.yaml", "w") as f:
-        f.write("repository: file://.replicate/")
+    with open("keepsake.yaml", "w") as f:
+        f.write("repository: file://.keepsake/")
 
     dense_size = 784
     learning_rate = 0.1
@@ -136,7 +143,7 @@ def test_pl_callback_with_validation(temp_workdir):
     trainer = Trainer(
         checkpoint_callback=False,
         callbacks=[
-            ReplicateCallback(
+            KeepsakeCallback(
                 params={"dense_size": dense_size, "learning_rate": learning_rate,},
                 primary_metric=("val_loss", "minimize"),
             )
@@ -146,7 +153,7 @@ def test_pl_callback_with_validation(temp_workdir):
 
     trainer.fit(model)
 
-    exp_meta_paths = glob(".replicate/metadata/experiments/*.json")
+    exp_meta_paths = glob(".keepsake/metadata/experiments/*.json")
     assert len(exp_meta_paths) == 1
     with open(exp_meta_paths[0]) as f:
         exp_meta = json.load(f)
@@ -163,4 +170,4 @@ def test_pl_callback_with_validation(temp_workdir):
     assert set(chkp_meta["metrics"].keys()) == set(
         ["val_loss", "global_step", "epoch",]
     )
-    assert os.path.exists(".replicate/checkpoints/" + chkp_meta["id"] + ".tar.gz")
+    assert os.path.exists(".keepsake/checkpoints/" + chkp_meta["id"] + ".tar.gz")

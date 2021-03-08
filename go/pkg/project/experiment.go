@@ -6,11 +6,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/replicate/replicate/go/pkg/config"
-	"github.com/replicate/replicate/go/pkg/console"
-	"github.com/replicate/replicate/go/pkg/hash"
-	"github.com/replicate/replicate/go/pkg/param"
-	"github.com/replicate/replicate/go/pkg/repository"
+	"github.com/replicate/keepsake/go/pkg/config"
+	"github.com/replicate/keepsake/go/pkg/console"
+	"github.com/replicate/keepsake/go/pkg/hash"
+	"github.com/replicate/keepsake/go/pkg/param"
+	"github.com/replicate/keepsake/go/pkg/repository"
 )
 
 // Experiment represents a training run
@@ -26,7 +26,8 @@ type Experiment struct {
 	PythonVersion    string            `json:"python_version"`
 	PythonPackages   map[string]string `json:"python_packages"`
 	Checkpoints      []*Checkpoint     `json:"checkpoints"`
-	ReplicateVersion string            `json:"replicate_version"`
+	KeepsakeVersion  string            `json:"keepsake_version"`
+	ReplicateVersion string            `json:"replicate_version,omitempty"`
 }
 
 type NamedParam struct {
@@ -149,9 +150,12 @@ func listExperiments(repo repository.Repository) ([]*Experiment, error) {
 	for _, p := range paths {
 		exp := new(Experiment)
 		if err := loadFromPath(repo, p, exp); err == nil {
+			if exp.KeepsakeVersion == "" && exp.ReplicateVersion != "" {
+				exp.KeepsakeVersion = exp.ReplicateVersion
+			}
 			experiments = append(experiments, exp)
 		} else {
-			// Should we complain more loudly? https://github.com/replicate/replicate/issues/347
+			// Should we complain more loudly? https://github.com/replicate/keepsake/issues/347
 			console.Warn("Failed to load metadata from %q: %s", p, err)
 		}
 	}

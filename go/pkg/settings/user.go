@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-uuid"
 	"github.com/mitchellh/go-homedir"
 
-	"github.com/replicate/replicate/go/pkg/console"
-	"github.com/replicate/replicate/go/pkg/files"
+	"github.com/replicate/keepsake/go/pkg/console"
+	"github.com/replicate/keepsake/go/pkg/files"
 )
 
 // UserSettings represents global user settings that span multiple projects
@@ -32,6 +32,11 @@ func LoadUserSettings() (*UserSettings, error) {
 		AnalyticsEnabled: true,
 		FirstRun:         false,
 	}
+
+	if err := MaybeMoveDeprecatedUserSettingsDir(); err != nil {
+		return nil, err
+	}
+
 	settingsPath, err := userSettingsPath()
 	if err != nil {
 		return nil, err
@@ -82,9 +87,42 @@ func (s *UserSettings) Save() error {
 }
 
 func UserSettingsDir() (string, error) {
-	return homedir.Expand("~/.config/replicate")
+	return homedir.Expand("~/.config/keepsake")
+}
+
+func deprecatedUserSettingsDir() (string, error) {
+	return homedir.Expand("~/.config/keepsake")
 }
 
 func userSettingsPath() (string, error) {
-	return homedir.Expand("~/.config/replicate/settings.json")
+	dir, err := UserSettingsDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "settings.json"), nil
+}
+
+func MaybeMoveDeprecatedUserSettingsDir() error {
+	deprecatedDir, err := deprecatedUserSettingsDir()
+	if err != nil {
+		return err
+	}
+	exists, err := files.FileExists(deprecatedDir)
+	if err != nil {
+		return err
+	}
+	if exists {
+		dir, err := UserSettingsDir()
+		if err != nil {
+			return err
+		}
+		exists, err := files.FileExists(dir)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return os.Rename(deprecatedDir, dir)
+		}
+	}
+	return nil
 }
